@@ -1,25 +1,53 @@
 const {JSDOM} = require('jsdom')
 
-async function crawlPage(currentURL){
+async function crawlPage(baseURL, currentURL, pages){//Funcion recursiva para recorrer toda la pagina
     
+
+    const baseURlObj = new URL(baseURL)
+    const currentURLObj = new URL(currentURL)
+
+    if(baseURlObj.hostname !== currentURLObj.hostname){
+        return pages
+    }
+
+    const normalizeCurrentURL = normalizeURL(currentURL)
+    if(pages[normalizeCurrentURL]>0){
+        pages[normalizeCurrentURL]++
+        return pages 
+    }
+
+    pages[normalizeCurrentURL]=1
+    console.log(`Current page ${currentURL}`)
+
     try{
        const resp = await fetch(currentURL)
        if(resp.status >399){
         console.log(`error in fetch with status code: ${resp.status}`)
-        return
+        return pages
        }
 
        const contentType = resp.headers.get('content-type')
        if(!contentType.includes('text/html')){
         console.log(`Non html response, content type: ${contentType}`)
-        return 
+        return pages
        }
-       
+
+       const htmlBody = await resp.text()
+
+       const nextURLs = getURLsFromHTML(htmlBody, baseURL)
+
+       for(const nextURL of nextURLs){
+        pages = await crawlPage(baseURL,nextURL,pages)
+
+       }
+
     }catch(err){
         console.log('Error in fetch')
     }
-    console.log(await resp.text())
+    return pages
 }
+
+
 function getURLsFromHTML(htmlBody, baseURL){
     const urls =[]
     const dom = new JSDOM(htmlBody)
